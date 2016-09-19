@@ -19,10 +19,10 @@ class RenameAppTests(TestCase):
         self.old_app_name = 'old_app'
         self.new_app_name = 'new_app'
 
-        self.model_names = {
+        self.model_names = [
             'fake_table',
             'dummy_table'
-        }
+        ]
 
         self.old_app_content_type = ContentType.objects.create(
             app_label=self.old_app_name,
