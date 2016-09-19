@@ -24,29 +24,23 @@ class RenameAppTests(TestCase):
             'dummy_table'
         }
 
-        self.table_names_mappings = {
-            'old_app_fake_table': 'new_app_fake_table',
-            'old_app_dummy_table': 'new_app_dummy_table'
-        }
-
         self.old_app_content_type = ContentType.objects.create(
             app_label=self.old_app_name,
             model='dummymodel'
         )
 
         self.cursor = connection.cursor()
-        with transaction.atomic():
-            for table_name in self.table_names_mappings.keys():
-                create_table_sql = 'CREATE TABLE %s (' \
-                                   'id integer NOT NULL PRIMARY KEY AUTOINCREMENT,' \
-                                   'name varchar(50) NOT NULL)' % table_name
-                self.cursor.execute(create_table_sql)
+        for table_name in self.model_names:
+            create_table_sql = 'CREATE TABLE %s (' \
+                               'id integer NOT NULL PRIMARY KEY AUTOINCREMENT,' \
+                               'name varchar(50) NOT NULL)' % (self.old_app_name + '_' + table_name)
+            self.cursor.execute(create_table_sql)
 
     def tearDown(self):
         super(RenameAppTests, self).tearDown()
 
-        for table_name in self.table_names_mappings.values():
-            self.cursor.execute('DROP TABLE %s' % table_name)
+        for table_name in self.model_names:
+            self.cursor.execute('DROP TABLE %s' % (self.new_app_name + '_' + table_name))
 
     def table_exists(self, table_name):
         """
@@ -59,8 +53,8 @@ class RenameAppTests(TestCase):
         """
         Test the app renaming
         """
-        for table_name in self.table_names_mappings.keys():
-            self.assertEqual(self.table_exists(table_name), True)
+        for table_name in self.model_names:
+            self.assertEqual(self.table_exists(self.old_app_name + '_' + table_name), True)
 
         self.assertEqual(ContentType.objects.filter(app_label=self.old_app_name).count(), 1)
         self.assertEqual(ContentType.objects.filter(app_label=self.new_app_name).count(), 0)
@@ -69,11 +63,13 @@ class RenameAppTests(TestCase):
             patched_get_model_names.return_value = self.model_names
             call_command('rename_app', self.old_app_name, self.new_app_name)
 
-        for table_name in self.table_names_mappings.keys():
-            self.assertEqual(self.table_exists(table_name), False)
+        # Check that tables with old app name prefix do not exist
+        for table_name in self.model_names:
+            self.assertEqual(self.table_exists(self.old_app_name + '_' + table_name), False)
 
-        for table_name in self.table_names_mappings.values():
-            self.assertEqual(self.table_exists(table_name), True)
+        # Check that tables with new app name prefix do exist
+        for table_name in self.model_names:
+            self.assertEqual(self.table_exists(self.new_app_name + '_' + table_name), True)
 
         self.assertEqual(ContentType.objects.filter(app_label=self.old_app_name).count(), 0)
         self.assertEqual(ContentType.objects.filter(app_label=self.new_app_name).count(), 1)
